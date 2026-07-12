@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          # Added 'mingw-w64' to supply the exact native assembler the audio engine requires
+          # Installs mingw-w64 to provide the clean GNU assembler framework
           brew install make pkg-config glew glfw libusb gcc@15 mingw-w64
 
       - name: Check for ROM File
@@ -39,6 +39,17 @@ jobs:
         run: |
           echo "Hardcoding TARGET_IOS=1 at line 1 of all project Makefiles..."
           find . -name "Makefile*" -type f -exec sed -i '' '1s/^/TARGET_IOS := 1\nOSX_BUILD := 1\n/' {} +
+
+      - name: Route Audio Assembler to Absolute Path GNU Toolchain
+        run: |
+          echo "Locating Homebrew MingW cross-assembler path..."
+          # Fetch the explicit homebrew binary path to bypass Xcode sandbox constraints
+          MINGW_AS=$(which x86_64-w64-mingw32-as || echo "/opt/homebrew/bin/x86_64-w64-mingw32-as")
+          echo "Found target assembler at: $MINGW_AS"
+          ESCAPED_AS=$(echo "$MINGW_AS" | sed 's/\//\\\//g')
+          
+          # Globally substitute the broken windows tool identifier with our local absolute file target
+          find . -name "Makefile*" -type f -exec sed -i '' "s/i686-w64-mingw32-as/$ESCAPED_AS/g" {} +
 
       - name: Hard-Patch Graphics Code Pointer Mismatch
         run: |
