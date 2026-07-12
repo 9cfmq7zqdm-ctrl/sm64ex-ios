@@ -35,17 +35,15 @@ jobs:
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
       - name: Build Native iOS SDL2 Dependencies
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== STEP: Fetching raw SDL2 framework archive ==="
-          cd $GITHUB_WORKSPACE/..
+          echo "=== STEP: Cloning SDL2 repository via GitHub CLI ==="
           
-          # Target GitHub's codeload cluster to guarantee full source packet delivery
-          curl -L https://github.com -o sdl2.zip
-          unzip -q sdl2.zip
+          # Clone securely using GitHub's native tools into a dedicated folder
+          gh repo clone libsdl-org/SDL $GITHUB_WORKSPACE/../SDL_source -- --branch SDL2 --depth 1
           
-          # Standardize folder naming conventions
-          mv SDL-SDL2 SDL_source
-          cd SDL_source
+          cd $GITHUB_WORKSPACE/../SDL_source
           
           echo "=== STEP: Compiling SDL2 library for iOS architecture ==="
           xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
