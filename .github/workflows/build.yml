@@ -37,7 +37,6 @@ jobs:
       - name: Patch Modern Clang Pointer Restrictions Natively
         run: |
           echo "Injecting ignore-error flags directly into active compilation flags..."
-          # Target the exact active flag string inside all Makefiles so it cannot be overwritten
           find . -name "Makefile*" -type f -exec sed -i '' 's/-fno-strict-aliasing/-fno-strict-aliasing -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-error -Wno-deprecated-declarations/g' {} +
 
       - name: Build Native iOS SDL2 Dependencies
@@ -56,15 +55,24 @@ jobs:
           
           cp include/*.h $GITHUB_WORKSPACE/../ioslib/include/SDL2/
           cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/../ioslib/lib/
-          
-          echo "=== SDL2 Dependency compilation completed successfully ==="
 
-      - name: Run Native iOS Build Script
+      - name: Step 1 - Build Background Asset Tools
         run: |
-          chmod +x *.sh tools/* 2>/dev/null || true
-          ./build_ios.sh
+          chmod +x tools/* 2>/dev/null || true
+          make -C tools
 
-      - name: Package into iOS IPA
+      - name: Step 2 - Extract Assets from ROM
+        run: |
+          mkdir -p build/us_pc
+          python3 extract_assets.py us
+
+      - name: Step 3 - Sequential Game Code Compilation
+        run: |
+          echo "Compiling sequentially to uncover final hidden error..."
+          # Running with NO parallel threads so the failing file prints perfectly at the bottom
+          make TARGET_IOS=1
+
+      - name: Step 4 - Package into iOS IPA
         run: |
           mkdir -p Payload
           APP_DIR=$(find . -name "*.app" -type d | head -n 1)
