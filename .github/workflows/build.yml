@@ -34,6 +34,12 @@ jobs:
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
+      - name: Hard-Patch iOS Mode Globally Into Makefiles
+        run: |
+          echo "Hardcoding TARGET_IOS=1 at line 1 of all project Makefiles..."
+          # This guarantees that even isolated Xcode child scripts know they are building for iOS
+          find . -name "Makefile*" -type f -exec sed -i '' '1s/^/TARGET_IOS := 1\nOSX_BUILD := 1\n/' {} +
+
       - name: Hard-Patch Graphics Code Pointer Mismatch
         run: |
           echo "Injecting compiler warnings bypass directly into graphics source code..."
@@ -81,14 +87,9 @@ jobs:
       - name: Step 3 - Force Direct Xcode Compilation (No Signing)
         run: |
           echo "=== STEP: Compiling via Apple Xcode Toolchain ==="
-          # Exporting these targets globally ensures that Xcode's internal background shells recognize the iOS system path
-          export TARGET_IOS=1
-          export TARGET_APPLE=1
-          export OSX_BUILD=1
-          
-          xcodebuild -workspace sm64ios.xcworkspace -scheme sm64ios -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SYMROOT=$PWD/build TARGET_IOS=1 OSX_BUILD=1
+          xcodebuild -workspace sm64ios.xcworkspace -scheme sm64ios -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SYMROOT=$PWD/build
 
-      - name: Step 4 - Package into iOS iOS IPA
+      - name: Step 4 - Package into iOS IPA
         run: |
           mkdir -p Payload
           APP_DIR=$(find build/ -name "*.app" -type d | head -n 1)
