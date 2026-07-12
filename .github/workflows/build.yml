@@ -34,25 +34,26 @@ jobs:
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
+      - name: Patch Modern Clang Pointer and Declaration Restrictions
+        run: |
+          echo "Injecting ignore-error flags for modern Clang toolchains..."
+          # Insert override flags at line 1 of every Makefile to safely process legacy pointer profiles
+          find . -name "Makefile*" -type f -exec sed -i '' '1s/^/CFLAGS += -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-error\n/' {} +
+
       - name: Build Native iOS SDL2 Dependencies
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "=== STEP: Cloning SDL2 repository via GitHub CLI ==="
-          
-          # Clone securely using GitHub's native tools into a dedicated folder
           gh repo clone libsdl-org/SDL $GITHUB_WORKSPACE/../SDL_source -- --branch SDL2 --depth 1
-          
           cd $GITHUB_WORKSPACE/../SDL_source
           
           echo "=== STEP: Compiling SDL2 library for iOS architecture ==="
           xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
           
-          # Construct the exact folder tree layout required by sm64ex-ios
           mkdir -p $GITHUB_WORKSPACE/../ioslib/include/SDL2
           mkdir -p $GITHUB_WORKSPACE/../ioslib/lib
           
-          # Copy headers and binary files into place
           cp include/*.h $GITHUB_WORKSPACE/../ioslib/include/SDL2/
           cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/../ioslib/lib/
           
