@@ -12,7 +12,6 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          # Installs mingw-w64 to provide the clean GNU assembler framework
           brew install make pkg-config glew glfw libusb gcc@15 mingw-w64
 
       - name: Check for ROM File
@@ -35,20 +34,12 @@ jobs:
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
-      - name: Hard-Patch iOS Mode Globally Into Makefiles
-        run: |
-          echo "Hardcoding TARGET_IOS=1 at line 1 of all project Makefiles..."
-          find . -name "Makefile*" -type f -exec sed -i '' '1s/^/TARGET_IOS := 1\nOSX_BUILD := 1\n/' {} +
-
       - name: Route Audio Assembler to Absolute Path GNU Toolchain
         run: |
           echo "Locating Homebrew MingW cross-assembler path..."
-          # Fetch the explicit homebrew binary path to bypass Xcode sandbox constraints
           MINGW_AS=$(which x86_64-w64-mingw32-as || echo "/opt/homebrew/bin/x86_64-w64-mingw32-as")
           echo "Found target assembler at: $MINGW_AS"
           ESCAPED_AS=$(echo "$MINGW_AS" | sed 's/\//\\\//g')
-          
-          # Globally substitute the broken windows tool identifier with our local absolute file target
           find . -name "Makefile*" -type f -exec sed -i '' "s/i686-w64-mingw32-as/$ESCAPED_AS/g" {} +
 
       - name: Hard-Patch Graphics Code Pointer Mismatch
@@ -73,17 +64,9 @@ jobs:
           xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
           
           echo "=== STEP: Deploying SDL2 files to all relative search paths ==="
-          mkdir -p $GITHUB_WORKSPACE/../ioslib/include/SDL2
-          mkdir -p $GITHUB_WORKSPACE/../ioslib/lib
-          mkdir -p $GITHUB_WORKSPACE/ioslib/include/SDL2
           mkdir -p $GITHUB_WORKSPACE/ioslib/lib
-          mkdir -p $GITHUB_WORKSPACE/include/SDL2
-          
-          cp include/*.h $GITHUB_WORKSPACE/../ioslib/include/SDL2/
+          mkdir -p $GITHUB_WORKSPACE/ioslib/include/SDL2
           cp include/*.h $GITHUB_WORKSPACE/ioslib/include/SDL2/
-          cp include/*.h $GITHUB_WORKSPACE/include/SDL2/
-          
-          cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/../ioslib/lib/
           cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/ioslib/lib/
 
       - name: Step 1 - Build Background Asset Tools
@@ -95,21 +78,25 @@ jobs:
         run: |
           python3 extract_assets.py us
 
-      - name: Step 3 - Force Direct Xcode Compilation (No Signing)
+      - name: Step 3 - Native Workspace Compilation (Bypassing Xcode)
         run: |
-          echo "=== STEP: Compiling via Apple Xcode Toolchain ==="
-          xcodebuild -workspace sm64ios.xcworkspace -scheme sm64ios -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SYMROOT=$PWD/build
+          echo "=== STEP: Direct terminal application compilation ==="
+          # Compile using clean system parameters directly via parallel processing threads
+          make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
 
-      - name: Step 4 - Package into iOS IPA
+      - name: Step 4 - Custom Manifest Assembly and Packaging
         run: |
-          mkdir -p Payload
-          APP_DIR=$(find build/ -name "*.app" -type d | head -n 1)
-          if [ -z "$APP_DIR" ]; then
-            echo "=== ERROR: Build failed to produce an .app package ==="
-            exit 1
-          fi
-          echo "Found application bundle at: $APP_DIR"
-          cp -r "$APP_DIR" Payload/
+          echo "=== STEP: Compiling structural .app container manually ==="
+          mkdir -p Payload/sm64ios.app
+          
+          # 1. Transfer the compiled operational core binary file
+          cp build/us_pc/sm64ios Payload/sm64ios.app/
+          
+          # 2. Transfer interface mapping definitions and interface manifests
+          cp -R build/us_pc/Base.lproj Payload/sm64ios.app/ 2>/dev/null || cp -R sm64ios/Base.lproj Payload/sm64ios.app/
+          cp sm64ios/Info.plist Payload/sm64ios.app/ 2>/dev/null || true
+          
+          # 3. Compress container into structural iOS file wrapper
           zip -r sm64ex.ipa Payload
 
       - name: Upload IPA Artifact
