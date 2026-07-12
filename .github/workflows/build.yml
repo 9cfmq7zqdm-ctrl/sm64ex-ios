@@ -39,22 +39,22 @@ jobs:
           echo "=== STEP: Compiling official SDL2 library for iOS ==="
           
           # Move out of the main repository folder
-          cd ..
+          cd $GITHUB_WORKSPACE/..
           
-          # Clean clone using explicit branch formatting into a dedicated directory
-          git clone --branch SDL2 --depth 1 "https://github.com" SDL_source
+          # Clone using unquoted clean source syntax
+          git clone --branch SDL2 --depth 1 https://github.com SDL_source
           cd SDL_source
           
           # Compile the static library using Apple Xcode tools
           xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
           
           # Construct the exact folder tree layout required by sm64ex-ios
-          mkdir -p ../ioslib/include/SDL2
-          mkdir -p ../ioslib/lib
+          mkdir -p $GITHUB_WORKSPACE/../ioslib/include/SDL2
+          mkdir -p $GITHUB_WORKSPACE/../ioslib/lib
           
           # Copy headers and binary files into place
-          cp include/*.h ../ioslib/include/SDL2/
-          cp build/Release-iphoneos/libSDL2.a ../ioslib/lib/
+          cp include/*.h $GITHUB_WORKSPACE/../ioslib/include/SDL2/
+          cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/../ioslib/lib/
           
           echo "=== SDL2 Dependency compilation completed successfully ==="
 
