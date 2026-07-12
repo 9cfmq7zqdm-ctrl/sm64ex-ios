@@ -81,6 +81,9 @@ jobs:
       - name: Step 3 - Native Workspace Compilation (Bypassing Xcode)
         run: |
           echo "=== STEP: Direct terminal application compilation ==="
+          # Pre-create target output directory structure to prevent parallel race condition crashes
+          mkdir -p build/us_pc
+          
           # Compile using clean system parameters directly via parallel processing threads
           make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
 
@@ -90,7 +93,7 @@ jobs:
           mkdir -p Payload/sm64ios.app
           
           # 1. Transfer the compiled operational core binary file
-          cp build/us_pc/sm64ios Payload/sm64ios.app/
+          cp build/us_pc/sm64ios Payload/sm64ios.app/ 2>/dev/null || cp build/us_pc/sm64.app/sm64 Payload/sm64ios.app/sm64ios || cp build/us_pc/sm64ex Payload/sm64ios.app/sm64ios
           
           # 2. Transfer interface mapping definitions and interface manifests
           cp -R build/us_pc/Base.lproj Payload/sm64ios.app/ 2>/dev/null || cp -R sm64ios/Base.lproj Payload/sm64ios.app/
