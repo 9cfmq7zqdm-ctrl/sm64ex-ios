@@ -16,18 +16,22 @@ jobs:
 
       - name: Fix Missing cpp-12 Compiler Link
         run: |
-          # Locate the modern cpp version provided by homebrew
-          BREW_BIN_DIR=$(dirname $(which gcc))
-          REAL_CPP=$(ls $BREW_BIN_DIR/cpp-* | head -n 1)
+          # Create a custom local directory that isn't read-only
+          mkdir -p $HOME/custom_bin
           
+          # Find the actual GNU compiler provided by Homebrew
+          REAL_CPP=$(find /opt/homebrew/bin /usr/local/bin -name "cpp-[0-9]*" -type f 2>/dev/null | head -n 1)
+          
+          # Fallback to system cpp if Homebrew's specific version isn't found
           if [ -z "$REAL_CPP" ]; then
             REAL_CPP=$(which cpp)
           fi
           
-          echo "Mapping hardcoded cpp-12 to actual compiler: $REAL_CPP"
-          # Create an alias link in both potential paths so the Makefile finds it
-          sudo ln -sf "$REAL_CPP" "$BREW_BIN_DIR/cpp-12"
-          sudo ln -sf "$REAL_CPP" /usr/local/bin/cpp-12 2>/dev/null || true
+          echo "Mapping cpp-12 to safe path destination: $REAL_CPP"
+          ln -sf "$REAL_CPP" "$HOME/custom_bin/cpp-12"
+          
+          # Inject our custom directory straight into the GitHub environment path
+          echo "$HOME/custom_bin" >> $GITHUB_PATH
 
       - name: Check for ROM File
         run: |
@@ -40,8 +44,7 @@ jobs:
       - name: Run Build Script
         run: |
           chmod +x *.sh
-          # Pass the compiler override directly into the compilation flags
-          make TARGET_IOS=1 CPP=cpp -j$(sysctl -n hw.ncpu)
+          make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
 
       - name: Package into iOS IPA
         run: |
