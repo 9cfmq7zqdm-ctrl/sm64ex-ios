@@ -37,11 +37,16 @@ jobs:
             exit 1
           fi
 
-      - name: Run Build Script
+      - name: Run Asset Extractor and Build
         run: |
           chmod +x *.sh
-          # Pre-create the missing directory so the compiler can write to it immediately
+          # Pre-create the directory structure required by the build system
           mkdir -p build/us_pc
+          
+          # 1. Run the asset extractor to generate headers and game assets
+          python3 extract_assets.py us
+          
+          # 2. Compile the game source code
           make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
 
       - name: Package into iOS IPA
