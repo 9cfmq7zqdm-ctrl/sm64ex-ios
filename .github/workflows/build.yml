@@ -16,7 +16,6 @@ jobs:
 
       - name: Patch Makefiles with GNU Preprocessor
         run: |
-          # Locate the actual modern GNU preprocessor installed by Homebrew
           GNU_CPP=$(ls /opt/homebrew/bin/cpp-[0-9]* /usr/local/bin/cpp-[0-9]* 2>/dev/null | head -n 1)
           
           if [ -z "$GNU_CPP" ]; then
@@ -25,11 +24,8 @@ jobs:
           fi
           
           echo "Patching Makefiles to use stable GNU preprocessor: $GNU_CPP"
-          
-          # Escaping slashes for the sed command replacement path
           ESCAPED_CPP=$(echo "$GNU_CPP" | sed 's/\//\\\//g')
           
-          # Force patch across all code project Makefiles
           find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
@@ -44,6 +40,8 @@ jobs:
       - name: Run Build Script
         run: |
           chmod +x *.sh
+          # Pre-create the missing directory so the compiler can write to it immediately
+          mkdir -p build/us_pc
           make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
 
       - name: Package into iOS IPA
