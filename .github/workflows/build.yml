@@ -34,16 +34,43 @@ jobs:
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
+      - name: Create Smart Assembler Wrapper
+        run: |
+          echo "Creating a translation layer for legacy assembler flags..."
+          mkdir -p $HOME/custom_bin
+          
+          # Create a custom script that captures and sanitizes the Windows assembler flags
+          cat << 'EOF' > $HOME/custom_bin/i686-w64-mingw32-as
+          #!/bin/bash
+          args=()
+          while [[ $# -gt 0 ]]; do
+            case "$1" in
+              --defsym|-MD)
+                # Strip GNU flags and their trailing argument parameters
+                shift; shift
+                ;;
+              *)
+                args+=("$1")
+                shift
+                ;;
+            esac
+          done
+          # Route the clean assembly payload straight into Apple's native iOS arm64 assembler
+          exec clang -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk -c "${args[@]}"
+          EOF
+          
+          chmod +x $HOME/custom_bin/i686-w64-mingw32-as
+          
+          # Mirror the wrapper to standard names just in case the Makefile falls back
+          ln -sf $HOME/custom_bin/i686-w64-mingw32-as $HOME/custom_bin/as
+          
+          # Prepend our smart translation layer folder to the environment search path
+          echo "$HOME/custom_bin" >> $GITHUB_PATH
+
       - name: Hard-Patch iOS Mode Globally Into Makefiles
         run: |
           echo "Hardcoding TARGET_IOS=1 at line 1 of all project Makefiles..."
           find . -name "Makefile*" -type f -exec sed -i '' '1s/^/TARGET_IOS := 1\nOSX_BUILD := 1\n/' {} +
-
-      - name: Neutralize Windows Cross-Assembler Fallbacks
-        run: |
-          echo "Globally replacing missing MinGW tools with native macOS assembler..."
-          # Replaces any stray environment attempts to call the Windows assembler with native 'as'
-          find . -name "Makefile*" -type f -exec sed -i '' 's/i686-w64-mingw32-as/as/g' {} +
 
       - name: Hard-Patch Graphics Code Pointer Mismatch
         run: |
