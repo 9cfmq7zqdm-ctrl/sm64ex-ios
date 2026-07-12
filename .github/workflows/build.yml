@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install make pkg-config sdl2 glew glfw libusb
+          brew install make pkg-config sdl2 glew glfw libusb gcc@15
 
       - name: Check for ROM File
         run: |
@@ -22,27 +22,31 @@ jobs:
             exit 1
           fi
 
-      - name: Patch Preprocessor References
+      - name: Force Homebrew GNU Preprocessor
         run: |
-          echo "Redirecting hardcoded preprocessors to system default..."
-          # Replaces outdated compiler text references with standard system tools
-          find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-12/cpp/g" {} +
-          find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-10/cpp/g" {} +
-          find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/cpp/g" {} +
-          find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/cpp/g" {} +
+          echo "Mapping all compiler commands to Homebrew GNU cpp-15..."
+          
+          # Explicit path to the real GNU preprocessor installed by Homebrew
+          REAL_GNU_CPP="/opt/homebrew/bin/cpp-15"
+          ESCAPED_CPP=$(echo "$REAL_GNU_CPP" | sed 's/\//\\\//g')
+          
+          # Globally replace all instances of legacy or generic cpp text with the exact GNU path
+          find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
+          find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
+          find . -name "Makefile*" -type f -exec sed -i '' "s/\$(TARGET_PREFIX)cpp/$ESCAPED_CPP/g" {} +
+          find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
+          find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
       - name: Run Native iOS Build Script
         run: |
-          # Grant execution access to workspace utilities
           chmod +x *.sh tools/* 2>/dev/null || true
           
-          # Execute the official native iOS pipeline
+          # Force the make instructions to use our absolute path for any unpatched targets
           ./build_ios.sh
 
       - name: Package into iOS IPA
         run: |
           mkdir -p Payload
-          # Automatically finds the compiled native app bundle structure
           APP_DIR=$(find . -name "*.app" -type d | head -n 1)
           if [ -z "$APP_DIR" ]; then
             echo "=== ERROR: Build failed to produce an .app package ==="
