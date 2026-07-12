@@ -14,52 +14,35 @@ jobs:
           brew update
           brew install make pkg-config sdl2 glew glfw libusb
 
-      - name: Check ROM File and Hash
+      - name: Check for ROM File
         run: |
           if [ ! -f "baserom.us.z64" ]; then
             echo "=== ERROR: ROM FILE MISSING ==="
             echo "Ensure 'baserom.us.z64' is in the root folder (all lowercase)."
             exit 1
           fi
-          echo "ROM found! Verifying SHA1 hash..."
-          shasum baserom.us.z64
-          echo "Standard US ROM hash should be: 17ce077343c6133f8c9f5ad4e69d67a65d8a0f1e"
 
-      - name: Patch Makefiles for Native macOS Clang
+      - name: Patch Preprocessor References
         run: |
-          echo "Patching project to use native Apple Clang preprocessor..."
-          # Replace hardcoded cpp-12 references with clean native Clang preprocessor flags
-          find . -name "Makefile*" -type f -exec sed -i '' 's/cpp-12/clang -E -P -x c/g' {} +
-          find . -name "Makefile*" -type f -exec sed -i '' 's/cpp-10/clang -E -P -x c/g' {} +
+          echo "Redirecting hardcoded preprocessors to system default..."
+          # Replaces outdated compiler text references with standard system tools
+          find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-12/cpp/g" {} +
+          find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-10/cpp/g" {} +
+          find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/cpp/g" {} +
+          find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/cpp/g" {} +
 
-      - name: Step 1 - Build Background Asset Tools
+      - name: Run Native iOS Build Script
         run: |
-          chmod +x tools/* 2>/dev/null || true
-          make -C tools CC=clang CXX=clang++
-
-      - name: Step 2 - Extract Assets from ROM
-        run: |
-          mkdir -p build/us_pc
-          mkdir -p build/us_ios
+          # Grant execution access to workspace utilities
+          chmod +x *.sh tools/* 2>/dev/null || true
           
-          # Run asset extractor
-          python3 extract_assets.py us
-          
-          # Verify if the assets were actually generated
-          if [ ! -d "assets" ] && [ ! -f "src/engine/geo_layout.c" ]; then
-            echo "=== ERROR: Asset extraction failed! ==="
-            echo "Your ROM file might be corrupted or from the wrong region (must be US)."
-            exit 1
-          fi
+          # Execute the official native iOS pipeline
+          ./build_ios.sh
 
-      - name: Step 3 - Compile Game Binaries
-        run: |
-          # Build using native clang parameters directly
-          make TARGET_IOS=1 CC=clang CXX=clang++ -j$(sysctl -n hw.ncpu)
-
-      - name: Step 4 - Package into iOS IPA
+      - name: Package into iOS IPA
         run: |
           mkdir -p Payload
+          # Automatically finds the compiled native app bundle structure
           APP_DIR=$(find . -name "*.app" -type d | head -n 1)
           if [ -z "$APP_DIR" ]; then
             echo "=== ERROR: Build failed to produce an .app package ==="
