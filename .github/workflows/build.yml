@@ -37,7 +37,6 @@ jobs:
       - name: Hard-Patch Graphics Code Pointer Mismatch
         run: |
           echo "Injecting compiler warnings bypass directly into graphics source code..."
-          # This inserts diagnostic ignores right inside the code file so Xcode cannot override them
           sed -i '' '1s/^/#pragma clang diagnostic ignored "-Wincompatible-function-pointer-types"\n#pragma clang diagnostic ignored "-Wdeprecated-declarations"\n/' src/pc/gfx/gfx_opengl.c
 
       - name: Patch Modern Clang Pointer Restrictions Natively
@@ -82,9 +81,14 @@ jobs:
       - name: Step 3 - Force Direct Xcode Compilation (No Signing)
         run: |
           echo "=== STEP: Compiling via Apple Xcode Toolchain ==="
-          xcodebuild -workspace sm64ios.xcworkspace -scheme sm64ios -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SYMROOT=$PWD/build
+          # Exporting these targets globally ensures that Xcode's internal background shells recognize the iOS system path
+          export TARGET_IOS=1
+          export TARGET_APPLE=1
+          export OSX_BUILD=1
+          
+          xcodebuild -workspace sm64ios.xcworkspace -scheme sm64ios -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SYMROOT=$PWD/build TARGET_IOS=1 OSX_BUILD=1
 
-      - name: Step 4 - Package into iOS IPA
+      - name: Step 4 - Package into iOS iOS IPA
         run: |
           mkdir -p Payload
           APP_DIR=$(find build/ -name "*.app" -type d | head -n 1)
