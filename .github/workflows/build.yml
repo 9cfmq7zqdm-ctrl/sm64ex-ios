@@ -50,11 +50,22 @@ jobs:
           echo "=== STEP: Compiling SDL2 library for iOS architecture ==="
           xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
           
+          echo "=== STEP: Deploying SDL2 files to all relative search paths ==="
+          # Create header and lib folders across every possible relative search level
           mkdir -p $GITHUB_WORKSPACE/../ioslib/include/SDL2
           mkdir -p $GITHUB_WORKSPACE/../ioslib/lib
+          mkdir -p $GITHUB_WORKSPACE/ioslib/include/SDL2
+          mkdir -p $GITHUB_WORKSPACE/ioslib/lib
+          mkdir -p $GITHUB_WORKSPACE/include/SDL2
           
+          # Copy headers universally
           cp include/*.h $GITHUB_WORKSPACE/../ioslib/include/SDL2/
+          cp include/*.h $GITHUB_WORKSPACE/ioslib/include/SDL2/
+          cp include/*.h $GITHUB_WORKSPACE/include/SDL2/
+          
+          # Copy compiled libraries universally
           cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/../ioslib/lib/
+          cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/ioslib/lib/
 
       - name: Step 1 - Build Background Asset Tools
         run: |
@@ -63,19 +74,16 @@ jobs:
 
       - name: Step 2 - Extract Assets from ROM
         run: |
-          # Explicitly trigger texture and layout extraction before calling Xcode
           python3 extract_assets.py us
 
       - name: Step 3 - Force Direct Xcode Compilation (No Signing)
         run: |
           echo "=== STEP: Compiling via Apple Xcode Toolchain ==="
-          # Compiles the workspace structure bypassing cloud signature walls
           xcodebuild -workspace sm64ios.xcworkspace -scheme sm64ios -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SYMROOT=$PWD/build
 
       - name: Step 4 - Package into iOS IPA
         run: |
           mkdir -p Payload
-          # Locate the compiled bundle structure inside the explicit Xcode build tree
           APP_DIR=$(find build/ -name "*.app" -type d | head -n 1)
           if [ -z "$APP_DIR" ]; then
             echo "=== ERROR: Build failed to produce an .app package ==="
