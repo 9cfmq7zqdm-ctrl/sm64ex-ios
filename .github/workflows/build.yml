@@ -34,11 +34,11 @@ jobs:
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
-      - name: Patch Modern Clang Pointer and Declaration Restrictions
+      - name: Patch Modern Clang Pointer Restrictions Natively
         run: |
-          echo "Injecting ignore-error flags for modern Clang toolchains..."
-          # Insert override flags at line 1 of every Makefile to safely process legacy pointer profiles
-          find . -name "Makefile*" -type f -exec sed -i '' '1s/^/CFLAGS += -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-error\n/' {} +
+          echo "Injecting ignore-error flags directly into active compilation flags..."
+          # Target the exact active flag string inside all Makefiles so it cannot be overwritten
+          find . -name "Makefile*" -type f -exec sed -i '' 's/-fno-strict-aliasing/-fno-strict-aliasing -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-error -Wno-deprecated-declarations/g' {} +
 
       - name: Build Native iOS SDL2 Dependencies
         env:
