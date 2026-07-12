@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install make pkg-config sdl2 glew glfw libusb gcc@15
+          brew install make pkg-config glew glfw libusb gcc@15
 
       - name: Check for ROM File
         run: |
@@ -24,24 +24,42 @@ jobs:
 
       - name: Force Homebrew GNU Preprocessor
         run: |
-          echo "Mapping all compiler commands to Homebrew GNU cpp-15..."
-          
-          # Explicit path to the real GNU preprocessor installed by Homebrew
+          echo "Mapping compiler layouts to Homebrew GNU cpp-15..."
           REAL_GNU_CPP="/opt/homebrew/bin/cpp-15"
           ESCAPED_CPP=$(echo "$REAL_GNU_CPP" | sed 's/\//\\\//g')
           
-          # Globally replace all instances of legacy or generic cpp text with the exact GNU path
           find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "Makefile*" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
           find . -name "Makefile*" -type f -exec sed -i '' "s/\$(TARGET_PREFIX)cpp/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
+      - name: Build Native iOS SDL2 Dependencies
+        run: |
+          echo "=== STEP: Compiling official SDL2 library for iOS ==="
+          cd ..
+          
+          # Clone the official SDL2 stable branch
+          git clone --depth 1 https://github.com -b SDL2
+          cd SDL
+          
+          # Use Apple Xcode tools to build a static iOS arm64 binary
+          xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
+          
+          # Construct the exact folder tree layout required by sm64ex-ios
+          mkdir -p ../ioslib/include/SDL2
+          mkdir -p ../ioslib/lib
+          
+          # Copy headers and binary files into place
+          cp include/*.h ../ioslib/include/SDL2/
+          cp build/Release-iphoneos/libSDL2.a ../ioslib/lib/
+          
+          cd ../sm64ex-ios
+          echo "=== SDL2 Dependency compilation completed successfully ==="
+
       - name: Run Native iOS Build Script
         run: |
           chmod +x *.sh tools/* 2>/dev/null || true
-          
-          # Force the make instructions to use our absolute path for any unpatched targets
           ./build_ios.sh
 
       - name: Package into iOS IPA
