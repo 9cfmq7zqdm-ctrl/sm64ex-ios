@@ -37,8 +37,13 @@ jobs:
       - name: Hard-Patch iOS Mode Globally Into Makefiles
         run: |
           echo "Hardcoding TARGET_IOS=1 at line 1 of all project Makefiles..."
-          # This guarantees that even isolated Xcode child scripts know they are building for iOS
           find . -name "Makefile*" -type f -exec sed -i '' '1s/^/TARGET_IOS := 1\nOSX_BUILD := 1\n/' {} +
+
+      - name: Neutralize Windows Cross-Assembler Fallbacks
+        run: |
+          echo "Globally replacing missing MinGW tools with native macOS assembler..."
+          # Replaces any stray environment attempts to call the Windows assembler with native 'as'
+          find . -name "Makefile*" -type f -exec sed -i '' 's/i686-w64-mingw32-as/as/g' {} +
 
       - name: Hard-Patch Graphics Code Pointer Mismatch
         run: |
