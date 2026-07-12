@@ -37,13 +37,15 @@ jobs:
       - name: Build Native iOS SDL2 Dependencies
         run: |
           echo "=== STEP: Compiling official SDL2 library for iOS ==="
+          
+          # Move out of the main repository folder
           cd ..
           
-          # Clone the official SDL2 stable branch
-          git clone --depth 1 https://github.com -b SDL2
-          cd SDL
+          # Clean clone using explicit branch formatting into a dedicated directory
+          git clone --branch SDL2 --depth 1 "https://github.com" SDL_source
+          cd SDL_source
           
-          # Use Apple Xcode tools to build a static iOS arm64 binary
+          # Compile the static library using Apple Xcode tools
           xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
           
           # Construct the exact folder tree layout required by sm64ex-ios
@@ -54,7 +56,6 @@ jobs:
           cp include/*.h ../ioslib/include/SDL2/
           cp build/Release-iphoneos/libSDL2.a ../ioslib/lib/
           
-          cd ../sm64ex-ios
           echo "=== SDL2 Dependency compilation completed successfully ==="
 
       - name: Run Native iOS Build Script
