@@ -34,6 +34,12 @@ jobs:
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-12/$ESCAPED_CPP/g" {} +
           find . -name "*.sh" -type f -exec sed -i '' "s/cpp-10/$ESCAPED_CPP/g" {} +
 
+      - name: Hard-Patch Graphics Code Pointer Mismatch
+        run: |
+          echo "Injecting compiler warnings bypass directly into graphics source code..."
+          # This inserts diagnostic ignores right inside the code file so Xcode cannot override them
+          sed -i '' '1s/^/#pragma clang diagnostic ignored "-Wincompatible-function-pointer-types"\n#pragma clang diagnostic ignored "-Wdeprecated-declarations"\n/' src/pc/gfx/gfx_opengl.c
+
       - name: Patch Modern Clang Pointer Restrictions Natively
         run: |
           echo "Injecting ignore-error flags directly into active compilation flags..."
@@ -51,19 +57,16 @@ jobs:
           xcodebuild -project Xcode/SDL/SDL.xcodeproj -target "Static Library-iOS" -configuration Release -sdk iphoneos SYMROOT=$PWD/build
           
           echo "=== STEP: Deploying SDL2 files to all relative search paths ==="
-          # Create header and lib folders across every possible relative search level
           mkdir -p $GITHUB_WORKSPACE/../ioslib/include/SDL2
           mkdir -p $GITHUB_WORKSPACE/../ioslib/lib
           mkdir -p $GITHUB_WORKSPACE/ioslib/include/SDL2
           mkdir -p $GITHUB_WORKSPACE/ioslib/lib
           mkdir -p $GITHUB_WORKSPACE/include/SDL2
           
-          # Copy headers universally
           cp include/*.h $GITHUB_WORKSPACE/../ioslib/include/SDL2/
           cp include/*.h $GITHUB_WORKSPACE/ioslib/include/SDL2/
           cp include/*.h $GITHUB_WORKSPACE/include/SDL2/
           
-          # Copy compiled libraries universally
           cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/../ioslib/lib/
           cp build/Release-iphoneos/libSDL2.a $GITHUB_WORKSPACE/ioslib/lib/
 
