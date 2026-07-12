@@ -12,25 +12,19 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install make pkg-config sdl2 glew glfw libusb gcc
+          brew install make pkg-config sdl2 glew glfw libusb
 
-      - name: Fix Missing cpp-12 Compiler Link
+      - name: Create Custom cpp-12 Wrapper
         run: |
-          # Create a custom local directory that isn't read-only
+          # Create a custom directory for our script
           mkdir -p $HOME/custom_bin
           
-          # Find the actual GNU compiler provided by Homebrew
-          REAL_CPP=$(find /opt/homebrew/bin /usr/local/bin -name "cpp-[0-9]*" -type f 2>/dev/null | head -n 1)
+          # Write an executable shell script wrapper that bypasses xcode-select
+          echo '#!/bin/bash' > $HOME/custom_bin/cpp-12
+          echo 'exec cpp "$@"' >> $HOME/custom_bin/cpp-12
+          chmod +x $HOME/custom_bin/cpp-12
           
-          # Fallback to system cpp if Homebrew's specific version isn't found
-          if [ -z "$REAL_CPP" ]; then
-            REAL_CPP=$(which cpp)
-          fi
-          
-          echo "Mapping cpp-12 to safe path destination: $REAL_CPP"
-          ln -sf "$REAL_CPP" "$HOME/custom_bin/cpp-12"
-          
-          # Inject our custom directory straight into the GitHub environment path
+          # Push this folder to the front of GitHub's environment path
           echo "$HOME/custom_bin" >> $GITHUB_PATH
 
       - name: Check for ROM File
