@@ -12,26 +12,40 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install make pkg-config sdl2 glew glfw libusb
+          brew install make pkg-config sdl2 glew glfw libusb gcc
+
+      - name: Fix Missing cpp-12 Compiler Link
+        run: |
+          # Locate the modern cpp version provided by homebrew
+          BREW_BIN_DIR=$(dirname $(which gcc))
+          REAL_CPP=$(ls $BREW_BIN_DIR/cpp-* | head -n 1)
+          
+          if [ -z "$REAL_CPP" ]; then
+            REAL_CPP=$(which cpp)
+          fi
+          
+          echo "Mapping hardcoded cpp-12 to actual compiler: $REAL_CPP"
+          # Create an alias link in both potential paths so the Makefile finds it
+          sudo ln -sf "$REAL_CPP" "$BREW_BIN_DIR/cpp-12"
+          sudo ln -sf "$REAL_CPP" /usr/local/bin/cpp-12 2>/dev/null || true
 
       - name: Check for ROM File
         run: |
           if [ ! -f "baserom.us.z64" ]; then
             echo "=== ERROR: ROM FILE MISSING ==="
-            echo "You forgot to upload the ROM or named it incorrectly."
-            echo "Ensure 'baserom.us.z64' is in the main folder (all lowercase)."
+            echo "Ensure 'baserom.us.z64' is in the root folder (all lowercase)."
             exit 1
           fi
 
       - name: Run Build Script
         run: |
           chmod +x *.sh
-          ./build_ios.sh || make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
+          # Pass the compiler override directly into the compilation flags
+          make TARGET_IOS=1 CPP=cpp -j$(sysctl -n hw.ncpu)
 
       - name: Package into iOS IPA
         run: |
           mkdir -p Payload
-          # Automatically scans the build directories to find the compiled application
           APP_DIR=$(find . -name "*.app" -type d | head -n 1)
           if [ -z "$APP_DIR" ]; then
             echo "=== ERROR: Build failed to produce an .app package ==="
