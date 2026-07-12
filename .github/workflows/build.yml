@@ -42,16 +42,6 @@ jobs:
           ESCAPED_AS=$(echo "$MINGW_AS" | sed 's/\//\\\//g')
           find . -name "Makefile*" -type f -exec sed -i '' "s/i686-w64-mingw32-as/$ESCAPED_AS/g" {} +
 
-      - name: Hard-Patch Graphics Code Pointer Mismatch
-        run: |
-          echo "Injecting compiler warnings bypass directly into graphics source code..."
-          sed -i '' '1s/^/#pragma clang diagnostic ignored "-Wincompatible-function-pointer-types"\n#pragma clang diagnostic ignored "-Wdeprecated-declarations"\n/' src/pc/gfx/gfx_opengl.c
-
-      - name: Patch Modern Clang Pointer Restrictions Natively
-        run: |
-          echo "Injecting ignore-error flags directly into active compilation flags..."
-          find . -name "Makefile*" -type f -exec sed -i '' 's/-fno-strict-aliasing/-fno-strict-aliasing -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-error -Wno-deprecated-declarations/g' {} +
-
       - name: Build Native iOS SDL2 Dependencies
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,28 +68,32 @@ jobs:
         run: |
           python3 extract_assets.py us
 
-      - name: Step 3 - Native Workspace Compilation (Bypassing Xcode)
+      - name: Step 3 - Forced Native Terminal Compilation
         run: |
           echo "=== STEP: Direct terminal application compilation ==="
-          # Pre-create target output directory structure to prevent parallel race condition crashes
+          # Pre-create compilation directories
           mkdir -p build/us_pc
           
-          # Compile using clean system parameters directly via parallel processing threads
-          make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
+          # Force compiler parameters directly to inject missing search flags and suppressions globally
+          make TARGET_IOS=1 \
+            CC="clang -Iinclude -Isrc -I. -Ibuild/us_pc -Iioslib/include -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-error -Wno-deprecated-declarations" \
+            -j$(sysctl -n hw.ncpu)
 
-      - name: Step 4 - Custom Manifest Assembly and Packaging
+      - name: Step 4 - Manual Manifest Assembly and Packaging
         run: |
           echo "=== STEP: Compiling structural .app container manually ==="
           mkdir -p Payload/sm64ios.app
           
-          # 1. Transfer the compiled operational core binary file
-          cp build/us_pc/sm64ios Payload/sm64ios.app/ 2>/dev/null || cp build/us_pc/sm64.app/sm64 Payload/sm64ios.app/sm64ios || cp build/us_pc/sm64ex Payload/sm64ios.app/sm64ios
+          # Find and move the compiled executable core binary file
+          TARGET_BIN=$(find build/ -type f -name "sm64ios" -o -name "sm64" -o -name "sm64ex" | head -n 1)
+          echo "Found compiled binary core at: $TARGET_BIN"
+          cp "$TARGET_BIN" Payload/sm64ios.app/sm64ios
           
-          # 2. Transfer interface mapping definitions and interface manifests
-          cp -R build/us_pc/Base.lproj Payload/sm64ios.app/ 2>/dev/null || cp -R sm64ios/Base.lproj Payload/sm64ios.app/
+          # Transfer interface definitions and manifests into the container layout
+          cp -R sm64ios/Base.lproj Payload/sm64ios.app/ 2>/dev/null || true
           cp sm64ios/Info.plist Payload/sm64ios.app/ 2>/dev/null || true
           
-          # 3. Compress container into structural iOS file wrapper
+          # Compress folder structure into a deployment-ready iOS wrapper package
           zip -r sm64ex.ipa Payload
 
       - name: Upload IPA Artifact
