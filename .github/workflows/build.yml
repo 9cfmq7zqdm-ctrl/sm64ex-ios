@@ -36,14 +36,14 @@ jobs:
 
       - name: Build Native iOS SDL2 Dependencies
         run: |
-          echo "=== STEP: Downloading official SDL2 source archive ==="
+          echo "=== STEP: Fetching raw SDL2 framework archive ==="
           cd $GITHUB_WORKSPACE/..
           
-          # Fetch the official SDL2 repository source directly via cURL as a ZIP package
+          # Target GitHub's codeload cluster to guarantee full source packet delivery
           curl -L https://github.com -o sdl2.zip
           unzip -q sdl2.zip
           
-          # Standardize directory name
+          # Standardize folder naming conventions
           mv SDL-SDL2 SDL_source
           cd SDL_source
           
