@@ -1,0 +1,48 @@
+name: Build iOS IPA
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install make pkg-config sdl2 glew glfw libusb
+
+      - name: Check for ROM File
+        run: |
+          if [ ! -f "baserom.us.z64" ]; then
+            echo "=== ERROR: ROM FILE MISSING ==="
+            echo "You forgot to upload the ROM or named it incorrectly."
+            echo "Ensure 'baserom.us.z64' is in the main folder (all lowercase)."
+            exit 1
+          fi
+
+      - name: Run Build Script
+        run: |
+          chmod +x *.sh
+          ./build_ios.sh || make TARGET_IOS=1 -j$(sysctl -n hw.ncpu)
+
+      - name: Package into iOS IPA
+        run: |
+          mkdir -p Payload
+          # Automatically scans the build directories to find the compiled application
+          APP_DIR=$(find . -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            echo "=== ERROR: Build failed to produce an .app package ==="
+            exit 1
+          fi
+          echo "Found application bundle at: $APP_DIR"
+          cp -r "$APP_DIR" Payload/
+          zip -r sm64ex.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sm64ex-ipa
+          path: sm64ex.ipa
