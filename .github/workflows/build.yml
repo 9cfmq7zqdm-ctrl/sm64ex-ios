@@ -4,8 +4,8 @@ on:
 
 jobs:
   build:
-    # Force the use of an Intel-based Mac environment to ensure legacy tool compatibility
-    runs-on: macos-13
+    # Use the active, modern macOS runner environment
+    runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,17 +23,19 @@ jobs:
             exit 1
           fi
 
-      - name: Execute Native Build Script
+      - name: Run Build Script
         run: |
-          # Give permissions and run the project's native build file directly
-          chmod +x build_ios.sh tools/*.py tools/*.sh 2>/dev/null || true
-          ./build_ios.sh
+          chmod +x *.sh
+          # Create target folder structures upfront
+          mkdir -p build/us_pc
+          
+          # Force compilation using standard modern system compilers
+          make TARGET_IOS=1 CC=clang CXX=clang++ CPP="clang -E" -j$(sysctl -n hw.ncpu)
 
       - name: Package into iOS IPA
         run: |
           mkdir -p Payload
-          # Locates the compiled bundle inside the build folders
-          APP_DIR=$(find build/ -name "*.app" -type d | head -n 1)
+          APP_DIR=$(find . -name "*.app" -type d | head -n 1)
           if [ -z "$APP_DIR" ]; then
             echo "=== ERROR: Build failed to produce an .app package ==="
             exit 1
