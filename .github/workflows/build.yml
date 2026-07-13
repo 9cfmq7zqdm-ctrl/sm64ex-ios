@@ -71,8 +71,9 @@ jobs:
       - name: Step 3 - Forced Native Terminal Compilation
         run: |
           echo "=== STEP: Direct terminal application compilation ==="
-          # Pre-create compilation directories
-          mkdir -p build/us_pc
+          # Pre-create all critical internal build and include directories to avoid race conditions
+          mkdir -p build/us_pc/include
+          mkdir -p build/us_pc/src
           
           # Force compiler parameters directly to inject missing search flags and suppressions globally
           make TARGET_IOS=1 \
